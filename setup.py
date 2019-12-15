@@ -10,8 +10,8 @@ def read_requirements():
 
 setup(
     version='0.0.1',
-    description='Sample package for Python-Guide.org',
+    #description='',
     long_description=readme,
-    author='Kensuke Mitsuzawa',
+    author='Shoretsu Takasuka',
     install_requires=read_requirements(),
 )
