@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #encoding: utf-8
 
-import redis
+from redis import Redis
 import subprocess
 import sys
 
@@ -17,11 +17,15 @@ class RedisHandler():
 
     def start(self):
         redis-server = ['/usr/local/bin/redis-server']
-        start = subprocess.run(start_redis, capture_output=True)
+        start = subprocess.run(redis-server, capture_output=True)
 
     def store(self, key, value):
         r.set(key, value)
 
-    def delete(self, key):pass
+    def delete(self, key):
+        r.del(key)
 
     def update(self, key):pass
+
+    def get_record(self, key):
+        return r.get(key)
