@@ -28,30 +28,33 @@ class QueryHandler(socketserver.BaseRequestHandler):
         query = DNSRecord.parse(data).questions
         parser = str(query).split(' ')
         content_id = parser[2].strip("'")
-        ans, rcode, ttl = self.lookup(content_id)
-
         # create response payload
-        header = DNSHeader(qr=1, aa=1, ra=1, rcode=rcode)
         q=DNSRecord(
                 q=DNSQuestion(content_id)
                 )
-        a=q.replyZone(
-                zone="{} {} IN {}".format(
-                    content_id, ttl, ans)
-                )
-        res = DNSRecord(header, q, a)
+        try:
+            ans, rcode, ttl = self.lookup(content_id)
+            a=q.replyZone(
+                    zone="{} {} IN {}".format(
+                        content_id, ttl, ans))
+            res = DNSRecord(header, q, a)
+        except:
+            rcode = RCODE["NXDomain"]
+            header = DNSHeader(qr=1, aa=1, ra=1, rcode=rcode)
+            res = DNSRecord(header, q)
         payload = DNSRecord.parse(res.pack())
         connection.sendto(payload, self.client_address)
 
     def lookup(self, key):
         self.conn = Redis("127.0.0.1", 6379)
-        value = self.conn.get(key)
         # value = [obj, RR, Record Value, TTL]
-        ans, ttl = value[-2], value[-1]
+        value = self.conn.get(key)
         if value:
+            ans, ttl = value[-2], value[-1]
             return ans, RCODE["NoError"], ttl
         else:
-            return "Not Match", RCODE["NXDomain"], ttl
+            return False
+            #return "Not Match", , ttl
 
 
 if __name__ == "__main__":
