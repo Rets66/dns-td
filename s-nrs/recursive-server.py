@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-import csv
-import hashlib
+import json
+from hashlib import sha3_224 as hashing
 import socketserver
 import threading
+import bisect
 
 from dnslib.dns import DNSHeader, DNSQuestion, DNSRecord, DNSError
 from dnslib.buffer import Buffer, BufferError
 from dnslib.label import DNSBuffer, DNSLabel
+#from dnslib.server import DNSServer,DNSHandler,BaseResolver,DNSLogger
 
-QTYPE = {"A":1, "NS":2, "CNAME":5, "SOA":6, "PTR":12, "HINFO":13,
-        "MX":15, "TXT":16, "RP":17, "AAAA":28, "HASHED":62}
+QTYPE = {"A":1, "NS":2, "CNAME":5, "SOA":6, "PTR":12,"MX":15,
+        "TXT":16, "AAAA":28, "HASHED":62}
+RTYPE = {1:"A", 2:"NS", 5:"CNAME", 6:"SOA", 12:"PTR", 15:"MX",
+        16:"TXT", 28:"AAAA", 62:"HASHED"}
 PORT = 19953
 
+with open('range-map.json') as f:
+    json_file = json.load(f)
+    MADDR = [i['address'] for i in json_file]
+    START_POINT = [i['range'][0] for i in json_file]
 
 class TransferHandler(socketserver.BaseRequestHandler):
     """
@@ -25,66 +33,54 @@ class TransferHandler(socketserver.BaseRequestHandler):
      * transfer the query to DHT manager based on Address Mapping Table
     """
 
-    def __init__(self):
-        self.table = []
-        with open('/Users/shoretsu-t/git/range-map.csv', newline='') as f:
-            reader = csv.reader(f)
-            for i in reader:
-                self.table.append(i)
-
-    def find_dst(self, contentID):
-        start = [i[0] for i in self.table]
-        line = bisect.bisect_left(start, contentID) - 1
-        #name, ip_addr = self.table[line][-1], self.table[line][-2]
-        dst_ipaddr = self.table[line][-2]
-        return dst_ipaddr
-
-    def parse_dpacket(self, packet):
-        data = DNSRecord.parse(packet)
-        id, rcode = packet.header.id, packet.header.rcode
-        query_list = str(packet.questions[0]).split()
-        obj, rtype = query_list[0].strip(';'), query_list[-1]
-        return id, rcode, obj, rtype, data
-
-    def create_packet(self, query-response, packet_id, status, name, recode_type):
-        packet = DNSRecord(
-                    DNSHeader(qr=query-response, aa=1, ra=1,
-                    id=packet_id, rcode=status))
-        packet.add_question(name, recode_type)
-        return packet
-
     def handle(self):
+        """The handle method from stab resolver"""
         # Required: packet id, src, dst, payload, rtype
         data, connection = self.request
         packet = DNSRecord.parse(data)
-        query_id, status, obj, query_rtype, query_body = parse_dpacket(packet)
-        content = obj + query_rtype
-        content_id = hashlib.sha3_256(content.encode()).hexdigest()
-        # find target manager
-        dst_ip = find(content_id)
-        # create packet
-        init_packet_manager = create_packet(
-                query-response=0, packet_id=id,
-                rcode=status, name=obj,
-                recode_type=QTYPE["HASHED"])
-        payload_manager = init_payload_manager.pack()
-        # transfer
-        response = payload_manager.send(dst_ip)
-        # response
-        _id, ans_rcode, ans_obj, _rtype, ans_body = parse_dpacket(response)
-        answer = create_packet(
-                    query-response=1, packet_id=query_id
-                    rcode=ans_rcode, name=obj, recode_type=query_rtype)
-        if ans_rcode == 0:  #NOERROR
-            answer.add_answer(RR(res_obj, query_rtype,rdata=query_rtype, ttl=ttl))
-        else:pass
-        client_addr = (dst, port)
-        connection.sendto(answer, self.client_addr)
+        packet_id = packet.header.id
+        name = str(packet.q.qname).rstrip('.')
+        _rtype = packet.q.qtype
+        rtype = RTYPE[_rtype]
+        key = name + rtype
+        sub_id = hashing(name.encode()).hexdigest()[:2]
+        content_id = hashing(key.encode()).hexdigest()
 
+        # find target manager
+        pointer = bisect.bisect_left(START_POINT, content_id[:32]) - 1
+        manager_addr = MADDR[pointer]
+
+        # create transfer_packet
+        header = DNSHeader(qr=1, aa=1, ra=1)
+        transfer_packet = DNSRecord(header)
+        transfer_packet.add_question(DNSQuestion(content_id))
+        transfer_packet = transfer_packet.pack()
+        # transfer
+        ans = payload_manager.send(dst_ip)
+
+
+        # response
+#        r_packet = DNSRecord(ans)
+#
+#        _id, ans_rcode, ans_obj, _rtype, ans_body = parse_dpacket(response)
+#        answer = create_packet(
+#                    query-response=1, packet_id=query_id
+#                    rcode=ans_rcode, name=obj, recode_type=query_rtype)
+#        if ans_rcode == 0:  #NOERROR
+#            answer.add_answer(RR(res_obj, query_rtype,rdata=query_rtype, ttl=ttl))
+#        else:pass
+#        client_addr = (dst, port)
+#        connection.sendto(answer, self.client_addr)
+
+    def create_packet(self, query_response, packet_id, status, name, recode_type):
+        return packet
 
 if __name__ == '__main__':
-    addr = ("localhost", PORT)
 
+    addr = ("localhost", PORT)
     server = socketserver.ThreadingUDPServer(addr, TransferHandler)
     with server:
         server_thread = threading.Thread(target=server.serve_forever())
+#    resolver = TransferHandler()
+#    udp_server = DNSServer(resolver,port=PORT, address='localhost')
+#    udp_server.start_thread()

@@ -18,7 +18,7 @@ class QueryHandler(socketserver.BaseRequestHandler):
     """
     The DNS query handle server
 
-    The suppoted query type is alread hashed, which's argment is qname and RR.
+    The suppoted query type is already hashed, which's argment is qname and RR.
     Parsing the contentID(key), search in the Redis server.
     if it is able to find it, response the rcode and value.
     Otherwise, response only the rcode.
