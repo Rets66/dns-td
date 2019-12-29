@@ -40,8 +40,8 @@ class TransferHandler(socketserver.BaseRequestHandler):
         packet = DNSRecord.parse(data)
         packet_id = packet.header.id
         name = str(packet.q.qname).rstrip('.')
-        _rtype = packet.q.qtype
-        rtype = RTYPE[_rtype]
+        rtype_id = packet.q.qtype
+        rtype = RTYPE[rtype_id]
         key = name + rtype
         sub_id = hashing(name.encode()).hexdigest()[:2]
         content_id = hashing(key.encode()).hexdigest()
@@ -51,36 +51,34 @@ class TransferHandler(socketserver.BaseRequestHandler):
         manager_addr = MADDR[pointer]
 
         # create transfer_packet
-        header = DNSHeader(qr=1, aa=1, ra=1)
+        header = DNSHeader(qr=0, aa=1, ra=1)
         transfer_packet = DNSRecord(header)
         transfer_packet.add_question(DNSQuestion(content_id))
-        transfer_packet = transfer_packet.pack()
-        # transfer
-        ans = payload_manager.send(dst_ip)
-
-
+        #response = transfer_packet.send(dst_ip)
+        response = transfer_packet.send('localhost')
         # response
-#        r_packet = DNSRecord(ans)
+        answer_packet = DNSRecord.parse(response)
+        # value = [name ttl, rdata]
+#        rcode = 
+#        value = str(answer_packet.a.) 
+#        ttl = answer_packet. 
+#        ans_header = DNSHeader(qr=1, packet_id, aa=1, ra=1, rcode)
+#        ans_packet = DNSRecord(ans_header)
+#        ans_packet = ans_packet.reply()
 #
-#        _id, ans_rcode, ans_obj, _rtype, ans_body = parse_dpacket(response)
-#        answer = create_packet(
-#                    query-response=1, packet_id=query_id
-#                    rcode=ans_rcode, name=obj, recode_type=query_rtype)
 #        if ans_rcode == 0:  #NOERROR
-#            answer.add_answer(RR(res_obj, query_rtype,rdata=query_rtype, ttl=ttl))
+#            ans_packet.add_answer(
+#                    *RR.fromZone("{} {} {} {}".format(
+#                        name, ttl, QTYPE[rtype_id], value
+#                        )
+#                    )
 #        else:pass
-#        client_addr = (dst, port)
-#        connection.sendto(answer, self.client_addr)
+#        connection.sendto(answer, self.client_address)
 
-    def create_packet(self, query_response, packet_id, status, name, recode_type):
-        return packet
+
 
 if __name__ == '__main__':
-
     addr = ("localhost", PORT)
     server = socketserver.ThreadingUDPServer(addr, TransferHandler)
     with server:
         server_thread = threading.Thread(target=server.serve_forever())
-#    resolver = TransferHandler()
-#    udp_server = DNSServer(resolver,port=PORT, address='localhost')
-#    udp_server.start_thread()
