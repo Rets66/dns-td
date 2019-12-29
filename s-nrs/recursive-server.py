@@ -35,7 +35,6 @@ class TransferHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         """The handle method from stab resolver"""
-        # Required: packet id, src, dst, payload, rtype
         data, connection = self.request
         packet = DNSRecord.parse(data)
         packet_id = packet.header.id
@@ -55,25 +54,21 @@ class TransferHandler(socketserver.BaseRequestHandler):
         transfer_packet = DNSRecord(header)
         transfer_packet.add_question(DNSQuestion(content_id))
         #response = transfer_packet.send(dst_ip)
-        response = transfer_packet.send('localhost')
-        # response
-        answer_packet = DNSRecord.parse(response)
-        # value = [name ttl, rdata]
-#        rcode = 
-#        value = str(answer_packet.a.) 
-#        ttl = answer_packet. 
-#        ans_header = DNSHeader(qr=1, packet_id, aa=1, ra=1, rcode)
-#        ans_packet = DNSRecord(ans_header)
-#        ans_packet = ans_packet.reply()
-#
-#        if ans_rcode == 0:  #NOERROR
-#            ans_packet.add_answer(
-#                    *RR.fromZone("{} {} {} {}".format(
-#                        name, ttl, QTYPE[rtype_id], value
-#                        )
-#                    )
-#        else:pass
-#        connection.sendto(answer, self.client_address)
+        response = transfer_packet.send('100.10.1.4')
+        d = DNSRecord.parse(response)
+        # Create response packat
+        header = DNSHeader(
+                id=packet_id, qr=1, ra=1, aa=1, bitmap=d.header.rcode)
+        ans_packet = DNSRecord(header)
+        p = ans_packet.question(name)
+        p = d.reply()
+
+        if d.header.rcode == 0:  #NOERROR
+            p.add_answer(RR.fromZone("{} {} {} {}".format(
+                            name, d.a.ttl, QTYPE[rtype_id], str(d.a.rdata))
+                        )
+        else:pass
+        connection.sendto(p, self.client_address)
 
 
 
