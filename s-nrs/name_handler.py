@@ -57,7 +57,7 @@ class QueryHandler(socketserver.BaseRequestHandler):
 
 
 if __name__ == "__main__":
-    addr = ("localhost", 10053)
+    addr = ("0.0.0.0", 10053)
     server = socketserver.ThreadingUDPServer(addr, QueryHandler)
     with server:
         server_thread = threading.Thread(target=server.serve_forever())

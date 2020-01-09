@@ -73,7 +73,7 @@ class TransferHandler(socketserver.BaseRequestHandler):
 
 
 if __name__ == '__main__':
-    addr = ("localhost", PORT)
+    addr = ("0.0.0.0", PORT)
     server = socketserver.ThreadingUDPServer(addr, TransferHandler)
     with server:
         server_thread = threading.Thread(target=server.serve_forever())
