@@ -66,7 +66,7 @@ class TransferHandler(socketserver.BaseRequestHandler):
         if d.header.rcode == 0:  #NOERROR
             p.add_answer(RR.fromZone("{} {} {} {}".format(
                             name, d.a.ttl, QTYPE[rtype_id], str(d.a.rdata))
-                        )
+                        ))
         else:pass
         connection.sendto(p, self.client_address)
 
