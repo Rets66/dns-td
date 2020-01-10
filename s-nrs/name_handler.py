@@ -38,9 +38,9 @@ class QueryHandler(socketserver.BaseRequestHandler):
         b_value = self.resolute(c_id)
         if b_value:
             ttl, record = b_value[-2], b_value[-1]
-            res = self.gen_packet(p_id, c_id)
+            res = self.gen_packet(p_id, c_id, ttl, record)
         else:
-            res = self.send_error()
+            res = self.send_error(p_id, c_id)
         connection.sendto(res, self.client_address)
 
     def parser(self, payload):
@@ -53,12 +53,12 @@ class QueryHandler(socketserver.BaseRequestHandler):
     def resolute(self, c_id):
         return Redis("127.0.0.1", 6379).get(c_id)
 
-    def gen_packet(self, p_id, c_id):
-#       ans, ttl = value[-2], value[-1]
+    def gen_packet(self, p_id, c_id, ttl, record):
+        #ans, ttl = value[-2], value[-1]
         header = DNSHeader(qr=1, aa=1, ra=1,id=p_id, rcode=RCODE["NoError"]))
         res = DNSRecord(header)
         res.add_question(DNSQuestion(c_id, 'HASHED'))
-        res.add_answer(*RR.fromZone("{} {} IN A {}".format(content_id, ttl, ans)))
+        res.add_answer(*RR.fromZone("{} {} IN HASHED {}".format(content_id, ttl, record)))
         return response.pack()
 
         # if redis can't find the queried key, then the value sets 'None'
@@ -66,7 +66,7 @@ class QueryHandler(socketserver.BaseRequestHandler):
         header = DNSHeader(qr=1, aa=1, ra=1,id=p_id, rcode=RCODE["NXDomain"]))
         res = DNSRecord(header)
         res.add_question(DNSQuestion(c_id, 'HASHED'))
-        return response.pack()
+        return res.pack()
 
 if __name__ == "__main__":
     addr = ("0.0.0.0", 10053)
