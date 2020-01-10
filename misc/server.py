@@ -86,4 +86,3 @@ if __name__ == '__main__':
     server = socketserver.ThreadingUDPServer(addr, TransferHandler)
     with server:
         server_thread = threading.Thread(target=server.serve_forever())
-
