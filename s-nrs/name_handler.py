@@ -1,6 +1,7 @@
 #/usr/env python3
 #encoding: utf-8
 
+import json
 import socketserver
 import subprocess
 import threading
@@ -18,8 +19,6 @@ QTYPE = {"A":1, "NS":2, "CNAME":5, "SOA":6, "PTR":12, "HINFO":13,
 RTYPE = {1:"A", 2:"NS", 5:"CNAME", 6:"SOA", 12:"PTR", 15:"MX",
         16:"TXT", 28:"AAAA", 62:"HASHED"}
 
-# Redis needs to start befere the resolution starts
-#def redis_handler():pass
 
 
 class QueryHandler(socketserver.BaseRequestHandler):
@@ -37,25 +36,22 @@ class QueryHandler(socketserver.BaseRequestHandler):
         # handle query
         data, connection = self.request
         query_data = self.parser(data)
-        value = self.resolute(query_data['c_id'])
+        value = self.db_accesser(query_data['c_id'])
 
+        # valeh
         if value: # value = [obj, RR, Record Value, TTL]
             ans = value.decode()
             ttl = '60'
-            # ans, ttl = value[-2], value[-1]
+            # answer = self.redis_parser(value)
             payload = self.gen_packet(
                     query_data['p_id'], query_data['c_id'],
                     query_data['q_type'], ttl, ans)
         else:
             payload = self.gen_error(
                     query_data['p_id'], query_data['c_id'], query_data['q_type'])
-            # gen_error(self, p_id, c_id, q_type):
         payload = payload.pack()
         connection.sendto(payload, self.client_address)
 
-    def resolute(self, c_id):
-        return Redis("127.0.0.1", 6379).get(c_id)
-        
     def parser(self, data):
         payload = DNSRecord.parse(data)
         p_id = payload.header.id
@@ -63,6 +59,15 @@ class QueryHandler(socketserver.BaseRequestHandler):
         q_type = payload.q.qtype
         answer = {'p_id':p_id, 'c_id':c_id, 'q_type':q_type}
         return answer
+
+    def db_accesser(self, c_id):
+        return Redis("127.0.0.1", 6379).get(c_id)
+
+    #def redis_parser(self, value):
+    #   data = json.load(value.decode())
+    #   answer = {'d_id':data[0], 'name':data[1], 'r_type':data[2],
+    #               'ttl':data[3], 'rdata':data[4]}
+    #   return answer
 
     # create response payload
     def gen_packet(self, p_id, c_id, q_type, ttl, record):
@@ -81,12 +86,7 @@ class QueryHandler(socketserver.BaseRequestHandler):
         return payload
 
 
-
 if __name__ == "__main__":
-    
-#    redis-start = ['/usr/local/bin/redis-server']
-#    subprocess.run(redis-start, capture_output=True)
-
     addr = ("0.0.0.0", 10053)
     server = socketserver.ThreadingUDPServer(addr, QueryHandler)
     with server:
