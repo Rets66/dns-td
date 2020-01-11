@@ -4,8 +4,8 @@ RUN apt clean
 RUN rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/exp
-COPY ./range-map.json /home/exp
-COPY ./requirements-resolver.txt /home/exp
-COPY ./entorypoint-resolver.sh /home/exp
-COPY ./full-resolver.py /home/exp
-ENTRYPOINT ["/entrypoint-resolver.sh"]
+COPY ./Dockerfile/range-map.json /home/exp
+COPY ./Dockerfile/requirements-resolver.txt /home/exp
+COPY ./Dockerfile/entrypoint-resolver.sh /home/exp
+COPY ./Dockerfile/full-resolver.py /home/exp
+ENTRYPOINT ["/home/exp/entrypoint-resolver.sh"]
