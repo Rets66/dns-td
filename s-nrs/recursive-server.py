@@ -7,10 +7,10 @@ import socketserver
 import threading
 import bisect
 
-from dnslib.dns import DNSHeader, DNSQuestion, DNSRecord, DNSError
+from dnslib.dns import DNSHeader, DNSQuestion, DNSRecord, DNSError, RR, ZoneParser
+from dnslib.bimap import Bimap
 from dnslib.buffer import Buffer, BufferError
 from dnslib.label import DNSBuffer, DNSLabel
-#from dnslib.server import DNSServer,DNSHandler,BaseResolver,DNSLogger
 
 QTYPE = {"A":1, "NS":2, "CNAME":5, "SOA":6, "PTR":12,"MX":15,
         "TXT":16, "AAAA":28, "HASHED":62}
@@ -29,14 +29,27 @@ class TransferHandler(socketserver.BaseRequestHandler):
     """
 
     def handle(self):
-        """The handle method from stab resolver"""
+
+        #The handle method from stab resolver
         payload, socket = self.request
-        p_id, name, q_type, q_typeid = self.parser(payload)
-        d_id, c_id = self.calc(name, q_type)
+        query_data = self.parser(payload)
+        d_id, c_id = self.calc(query_data['name'], query_data['q_type'])
         m_addr = self.find(start_point, maddr, c_id)
-        rcode, rdata = self.query(c_id, m_addr)
-        answer = self.gen_packet(p_id, name, rcode, q_typeid, rdata)
-        socket.sendto(answer.pack(), self.client_address)
+        answer  = self.query(c_id, m_addr)
+        response_data = self.parser(answer)
+
+        if response_data['rcode'] == 0:
+            payload = self.gen_packet(
+                    query_data['p_id'], query_data['name'],
+                    response_data['rcode'], response_data['ttl'],
+                    query_data['q_type'],response_data['rdata'])
+            socket.sendto(payload.pack(), self.client_address)
+        else:
+            payload = self.gen_error(
+                    query_data['p_id'], query_data['name'],
+                    QTYPE[query_data['q_type']], response_data['rcode'])
+            socket.sendto(payload.pack(), self.client_address)
+
 
     def parser(self, payload):
         data = DNSRecord.parse(payload)
@@ -44,7 +57,21 @@ class TransferHandler(socketserver.BaseRequestHandler):
         name = str(data.q.qname).rstrip('.')
         q_typeid = data.q.qtype
         q_type = RTYPE[q_typeid]
-        return p_id, name, q_type, q_typeid
+        rcode = data.header.rcode
+        answer = {'p_id':p_id, 'name':name, 'q_type':q_type}
+        qr = data.header.qr
+        if qr == 0:
+            return answer
+        else:
+            rcode = data.header.rcode
+            if rcode == 0:
+                answer['rdata'] = str(data.a.rdata)
+                answer['ttl'] = data.a.ttl
+                answer['rcode'] = rcode
+                return answer
+            else:
+                answer['rcode'] = rcode
+                return answer
 
     def find(self, start_addr, maddr, c_id):
         pointer = bisect.bisect_left(start_addr, c_id[:32]) - 1
@@ -61,20 +88,23 @@ class TransferHandler(socketserver.BaseRequestHandler):
         transfer_packet = DNSRecord(header)
         transfer_packet.add_question(DNSQuestion(c_id))
         response = transfer_packet.send(dest=m_addr, port=10053)
-        ans = DNSRecord.parse(response)
-        rcode, rdata = ans.header.rcode, str(ans.a.rdata)
-        return rcode, rdata
+        return response
 
-    def gen_packet(self, p_id, qname, rcode, q_typeid, rdata):
+    def gen_packet(self, p_id, qname, rcode, ttl, q_type, rdata):
         header = DNSHeader(id=p_id, qr=1, ra=1, aa=1, bitmap=rcode)
         packet = DNSRecord(header)
         packet.add_question(DNSQuestion(qname))
-        if rcode == 0:  #NOERROR
-            packet.add_answer(RR.fromZone("{} {} {} {}".format(name, answer_data.a.ttl, q_typeid, str(rdata))))
-            return packet
-        else:
-            return packet
+        packet.add_answer(
+                 *RR.fromZone("{} {} {} {}".format(qname, ttl, q_type, rdata))
+                )
+        return packet
 
+    def gen_error(self, p_id, qname, q_type, rcode):
+        header = DNSHeader(id=p_id, qr=1, ra=1, aa=1, bitmap=rcode)
+        packet = DNSRecord(header)
+        packet.add_question(DNSQuestion(qname))
+        return packet
+        
 
 if __name__ == '__main__':
     with open('range-map.json') as f:
@@ -86,4 +116,3 @@ if __name__ == '__main__':
     server = socketserver.ThreadingUDPServer(addr, TransferHandler)
     with server:
         server_thread = threading.Thread(target=server.serve_forever())
-

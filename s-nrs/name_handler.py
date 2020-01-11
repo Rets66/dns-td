@@ -1,7 +1,8 @@
 #/usr/env python3
 #encoding: utf-8
 
-import socketserver #import DatagramRequestHandler, ThreadingUDPServer
+import socketserver
+import subprocess
 import threading
 
 from dnslib.dns import *
@@ -32,43 +33,60 @@ class QueryHandler(socketserver.BaseRequestHandler):
     """
 
     def handle(self):
-        # handle query
-        payload, connection = self.request
-        p_id, c_id, qtype = self.parser(payload)
-        b_value = self.resolute(c_id)
-        if b_value:
-            ttl, record = b_value[-2], b_value[-1]
-            res = self.gen_packet(p_id, c_id, ttl, record)
-        else:
-            res = self.send_error(p_id, c_id)
-        connection.sendto(res, self.client_address)
 
-    def parser(self, payload):
-        data = DNSRecord.parse(payload)
-        p_id = data.header.id
-        c_id = str(data.q.qname).strip('.')
-        qtype = data.q.qtype
-        return p_id, c_id, qtype
+        # handle query
+        data, connection = self.request
+        query_data = self.parser(data)
+        value = self.resolute(query_data['c_id'])
+
+        if value: # value = [obj, RR, Record Value, TTL]
+            ans = value.decode()
+            ttl = '60'
+            # ans, ttl = value[-2], value[-1]
+            payload = self.gen_packet(
+                    query_data['p_id'], query_data['c_id'],
+                    query_data['q_type'], ttl, ans)
+        else:
+            payload = self.gen_error(
+                    query_data['p_id'], query_data['c_id'], query_data['q_type'])
+            # gen_error(self, p_id, c_id, q_type):
+        payload = payload.pack()
+        connection.sendto(payload, self.client_address)
 
     def resolute(self, c_id):
         return Redis("127.0.0.1", 6379).get(c_id)
+        
+    def parser(self, data):
+        payload = DNSRecord.parse(data)
+        p_id = payload.header.id
+        c_id = str(payload.q.qname).rstrip('.')
+        q_type = payload.q.qtype
+        answer = {'p_id':p_id, 'c_id':c_id, 'q_type':q_type}
+        return answer
 
-    def gen_packet(self, p_id, c_id, ttl, record):
-        #ans, ttl = value[-2], value[-1]
-        header = DNSHeader(qr=1, aa=1, ra=1,id=p_id, rcode=RCODE["NoError"]))
-        res = DNSRecord(header)
-        res.add_question(DNSQuestion(c_id, 'HASHED'))
-        res.add_answer(*RR.fromZone("{} {} IN HASHED {}".format(content_id, ttl, record)))
-        return response.pack()
+    # create response payload
+    def gen_packet(self, p_id, c_id, q_type, ttl, record):
+        payload = DNSRecord(
+                    DNSHeader(qr=1, aa=1, ra=1,id=p_id, rcode=RCODE["NoError"]))
+        payload.add_question(DNSQuestion(c_id, q_type))
+        payload.add_answer(
+                *RR.fromZone("{} {} A {}".format(c_id, ttl, record)))
+        return payload
 
-        # if redis can't find the queried key, then the value sets 'None'
-    def send_error(self, p_id, c_id):
-        header = DNSHeader(qr=1, aa=1, ra=1,id=p_id, rcode=RCODE["NXDomain"]))
-        res = DNSRecord(header)
-        res.add_question(DNSQuestion(c_id, 'HASHED'))
-        return res.pack()
+
+    def gen_error(self, p_id, c_id, q_type):
+        payload = DNSRecord(DNSHeader(qr=1, aa=1, ra=1,
+                    id=p_id, rcode=RCODE["NXDomain"]))
+        payload.add_question(DNSQuestion(c_id, q_type))
+        return payload
+
+
 
 if __name__ == "__main__":
+    
+#    redis-start = ['/usr/local/bin/redis-server']
+#    subprocess.run(redis-start, capture_output=True)
+
     addr = ("0.0.0.0", 10053)
     server = socketserver.ThreadingUDPServer(addr, QueryHandler)
     with server:
