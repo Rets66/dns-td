@@ -1,0 +1,33 @@
+[
+ {
+  "name":"com",
+  "address":"172.169.0.2",
+  "range":["00000000000000000000000000000000", "4zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]
+ },
+ {
+  "name":"net",
+  "address":"172.169.0.3",
+  "range":["50000000000000000000000000000000", "azzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]
+ },
+ {
+  "name":"org",
+  "address":"172.169.0.4",
+  "range":["b0000000000000000000000000000000", "gzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]
+ },
+ {
+  "name":"uk",
+  "address":"172.169.0.5",
+  "range":["h0000000000000000000000000000000", "mzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]
+ },
+ {
+  "name":"info",
+  "address":"172.169.0.6",
+  "range":["n0000000000000000000000000000000", "szzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]
+ },
+ {
+  "name":"de",
+  "address":"172.169.0.7",
+  "range":["t0000000000000000000000000000000", "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"]
+ }
+]
+
