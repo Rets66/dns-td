@@ -35,7 +35,8 @@ class TransferHandler(socketserver.BaseRequestHandler):
         query_data = self.parser(payload)
         d_id, c_id = self.calc(query_data['name'], query_data['q_type'])
         m_addr = self.find(start_point, maddr, c_id)
-        answer  = self.query(c_id, m_addr)
+        payload = "{}.{}".format(c_id, d_id)
+        answer  = self.query(payload, m_addr)
         response_data = self.parser(answer)
 
         if response_data['rcode'] == 0:
@@ -79,14 +80,14 @@ class TransferHandler(socketserver.BaseRequestHandler):
 
     def calc(self, name, qtype):
         key = name + qtype
-        d_id = hashing(name.encode()).hexdigest()[:2]
+        d_id = hashing(name.encode()).hexdigest()[:28]
         c_id = hashing(key.encode()).hexdigest()
         return d_id, c_id
 
-    def query(self, c_id, m_addr):
+    def query(self, payload, m_addr):
         header = DNSHeader(qr=0, aa=1, ra=1)
         transfer_packet = DNSRecord(header)
-        transfer_packet.add_question(DNSQuestion(c_id))
+        transfer_packet.add_question(DNSQuestion(payload))
         response = transfer_packet.send(dest=m_addr, port=10053)
         return response
 
@@ -104,7 +105,6 @@ class TransferHandler(socketserver.BaseRequestHandler):
         packet = DNSRecord(header)
         packet.add_question(DNSQuestion(qname))
         return packet
-        
 
 if __name__ == '__main__':
     with open('range-map.json') as f:
