@@ -1,6 +1,6 @@
 
 {
- "key":"c_id.d_id",
+ "key":"content_id.domain_id",
  "value":["domain_name", "rr_type", "ttl", "rr_data", "certification"]
 }
 
