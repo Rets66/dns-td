@@ -27,13 +27,14 @@ ave_time = list(map(ad, time1, time2, time3))
 mean = statistics.mean(ave_time)
 median = statistics.median(ave_time)
 mode = statistics.mode(ave_time)
+print(mean, median, mode)
 
 ave = sum(ave_time) / len(name)
 
 #colorif = ['royalblue' if 20 > i else 'darkorange' for i in ave_time]
 plt.grid(linestyle='-', linewidth=1)
 #plt.figure(figsize=(10.0, 5.0))
-plt.scatter(name, ave_time, marker=".", color='darkorange', s=5)
+plt.scatter(name, ave_time, marker=".", color='darkorange', s=10)
 #plt.scatter(name, time1, marker=".", color='darkorange', s=10)
 #plt.scatter(name, time2, marker=".", color='darkorange', s=10)
 #plt.scatter(name, time3, marker=".", color='darkorange', s=10)

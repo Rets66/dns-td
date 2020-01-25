@@ -1,2 +1,2 @@
-### SNNRS
-SNNRS(SuperNode based Name Resolution System)
+### DNS-TD
+DNS-TD(Tunneling Deterrence)
